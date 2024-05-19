@@ -7,6 +7,7 @@ import os
 import pytesseract
 from pdf2image import convert_from_path
 import tempfile
+import json
 from PIL import Image
 
 
@@ -41,7 +42,7 @@ async def process_files(files: List[Element]):
             file_texts[file.name] = pdf_string
     else:
         file_error_msg = f"Hey, it seems you have uploaded one or more files that we do not support currently, please upload only : {(',').join(allowed_mime)}"
-        await cl.Message(content=file_error_msg).send()
+        await cl.Message(content=file_error_msg, author="You").send()
 
     return file_texts
 
@@ -53,14 +54,26 @@ async def process_thread_message(
         id = thread_message.id + str(idx)
         if id in message_references:
             msg = message_references[id]
-            msg.content = content_message.text.value
+            msg.content = content_message
             await msg.update()
         else:
+            obj = json.loads(content_message.text.value)
+            message_content = obj.get("message")
+            suggestions = obj.get("suggestions") # TODO: test if is not None
+            actions = [
+                cl.Action(name="run_suggestion", value="run", label=s, description=s)
+                for i, s in enumerate(suggestions)
+            ]
             message_references[id] = cl.Message(
-                author=ASSISTANT_NAME, content=content_message.text.value
+                author=ASSISTANT_NAME, content=message_content, actions=actions
             )
             await message_references[id].send()
 
+
+@cl.action_callback("run_suggestion")
+async def on_action(action: cl.Action):
+    message = await cl.Message(content=action.label, author="You").send()
+    await main(message)
 
 
 @cl.step
