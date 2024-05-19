@@ -78,15 +78,17 @@ async def start_chat():
 @cl.step(name=ASSISTANT_NAME, type="run", root=True)
 async def run(thread_id: str, human_query: str, file_texts: dict):
     # Add the message to the thread
-    query = human_query + "\n PDF Given: "
-    for i, (filename, text) in enumerate(file_texts.items()):
-        query += f"\n---{filename}---\n" + text + f"\n---END {filename}---\n"
+    if len(file_texts) != 0:
+        human_query += "\n PDF Given: "
+        for i, (filename, text) in enumerate(file_texts.items()):
+            human_query += f"\n---{filename}---\n" + text + f"\n---END {filename}---\n"
+
     init_message = await client.beta.threads.messages.create(
-        thread_id=thread_id, role="user", content=query
+        thread_id=thread_id, role="user", content=human_query
     )
 
     # Create the run
-    run = await client.beta.threads.runs.create(
+    run = await client.beta.threads.runs.create_and_poll(
         thread_id=thread_id, assistant_id=assistant_id
     )
 
